@@ -86,7 +86,7 @@ describe('EventCard Component Tests', () => {
         const scrapedEvent = { ...mockEvent, source: 'scraped' };
         render(
             <RouterWrapper>
-                <EventCard event line={scrapedEvent} />
+                <EventCard event={scrapedEvent} />
             </RouterWrapper>
         );
 
@@ -155,6 +155,9 @@ describe('SearchBar Component Tests', () => {
         render(<SearchBar onSearch={mockOnSearch} />);
 
         const input = screen.getByPlaceholderText(/search/i);
+        // First type something
+        fireEvent.change(input, { target: { value: 'test' } });
+        // Then clear it
         fireEvent.change(input, { target: { value: '' } });
 
         expect(mockOnSearch).toHaveBeenCalledWith('');

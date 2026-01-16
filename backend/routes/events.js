@@ -305,4 +305,61 @@ router.post('/:id/archive', authenticateToken, (req, res) => {
     }
 });
 
+// POST /api/events/scraped - Receive scraped events (protected by API Key)
+router.post('/scraped', (req, res) => {
+    try {
+        const apiKey = req.headers['x-api-key'];
+
+        // Simple API Key check
+        if (!apiKey || apiKey !== (process.env.SCRAPER_API_KEY || 'hive-scraper-secret-key')) {
+            return res.status(401).json({ error: 'Invalid API Key' });
+        }
+
+        const { title, description, event_date, location, source, instagram_post_url, club_name } = req.body;
+
+        if (!title || !event_date || !club_name) {
+            return res.status(400).json({ error: 'Title, event_date, and club_name are required' });
+        }
+
+        // Find club by name (fuzzy match or exact)
+        const club = db.prepare('SELECT id FROM clubs WHERE name = ? COLLATE NOCASE').get(club_name.trim());
+
+        if (!club) {
+            return res.status(404).json({ error: `Club '${club_name}' not found` });
+        }
+
+        // Check for duplicates (same club, title, date)
+        const existingEvent = db.prepare(`
+            SELECT id FROM events 
+            WHERE club_id = ? AND title = ? AND event_date = ?
+        `).get(club.id, title, event_date);
+
+        if (existingEvent) {
+            return res.status(200).json({ message: 'Event already exists', id: existingEvent.id });
+        }
+
+        // Insert new scraped event
+        const result = db.prepare(`
+            INSERT INTO events (club_id, title, description, event_date, location, source, status, image_url)
+            VALUES (?, ?, ?, ?, ?, 'scraped', 'draft', ?)
+        `).run(
+            club.id,
+            title,
+            description || '',
+            event_date,
+            location || '',
+            instagram_post_url // Using post URL as image/link placeholder for now
+        );
+
+        res.status(201).json({
+            message: 'Scraped event created',
+            id: result.lastInsertRowid
+        });
+
+    } catch (error) {
+        console.error('Error receiving scraped event:', error);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
 module.exports = router;

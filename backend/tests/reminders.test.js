@@ -25,11 +25,12 @@ jest.mock('../database/db', () => {
         isReady: () => true,
         prepare: jest.fn((sql) => ({
             get: jest.fn((...params) => {
-                if (sql.includes('students') && sql.includes('email')) {
-                    return mockData.students.find(s => s.email === params[0]);
+                if (sql.includes('students')) {
+                    if (sql.includes('email = ?')) return mockData.students.find(s => s.email === params[0]);
+                    if (sql.includes('id = ?')) return mockData.students.find(s => s.id == params[0]);
                 }
                 if (sql.includes('events') && sql.includes('id = ?')) {
-                    const event = mockData.events.find(e => e.id === params[0]);
+                    const event = mockData.events.find(e => e.id == params[0]);
                     if (event && params[1] === 'published' && event.status !== 'published') {
                         return undefined;
                     }

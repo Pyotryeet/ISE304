@@ -20,10 +20,10 @@ jest.mock('../database/db', () => {
         prepare: jest.fn((sql) => ({
             get: jest.fn((...params) => {
                 if (sql.includes('SELECT') && sql.includes('clubs')) {
-                    if (sql.includes('email')) {
+                    if (sql.includes('email = ?')) {
                         return mockData.clubs.find(c => c.email === params[0]);
                     }
-                    if (sql.includes('id')) {
+                    if (sql.includes('id = ?')) {
                         return mockData.clubs.find(c => c.id === params[0]);
                     }
                 }

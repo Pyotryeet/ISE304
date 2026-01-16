@@ -307,17 +307,30 @@ def send_to_backend(events: list[dict], backend_url: str = "http://localhost:300
     """Send scraped events to the backend API"""
     print(f"\nSending {len(events)} events to backend...")
     
+    headers = {
+        'Content-Type': 'application/json',
+        'x-api-key': 'hive-scraper-secret-key'
+    }
+
     for event in events:
         try:
+            # Ensure required fields
+            if not event.get('title') or not event.get('event_date'):
+                print(f"  ⚠ Skipping incomplete event: {event.get('title', 'Unknown')}")
+                continue
+
             response = requests.post(
                 f"{backend_url}/api/events/scraped",
                 json=event,
-                headers={'Content-Type': 'application/json'}
+                headers=headers
             )
+            
             if response.status_code == 201:
                 print(f"  ✓ Created: {event.get('title', 'Unknown')[:50]}")
+            elif response.status_code == 200:
+                print(f"  ℹ Skipped (Duplicate): {event.get('title', 'Unknown')[:50]}")
             else:
-                print(f"  ⚠ Failed: {response.status_code}")
+                print(f"  ⚠ Failed ({response.status_code}): {response.text}")
         except Exception as e:
             print(f"  ✗ Error: {e}")
 

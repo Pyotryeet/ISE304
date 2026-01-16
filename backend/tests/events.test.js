@@ -57,8 +57,9 @@ jest.mock('../database/db', () => {
         isReady: () => true,
         prepare: jest.fn((sql) => ({
             get: jest.fn((...params) => {
-                if (sql.includes('SELECT') && sql.includes('events') && sql.includes('id = ?')) {
-                    return mockEvents.find(e => e.id === params[0]);
+                if (sql.includes('events') && sql.includes('id = ?')) {
+                    const found = mockEvents.find(e => e.id == params[0]);
+                    return found;
                 }
                 if (sql.includes('COUNT')) {
                     return { total: mockEvents.filter(e => e.status === 'published').length };
@@ -92,7 +93,27 @@ jest.mock('../database/db', () => {
 
                 return filtered;
             }),
-            run: jest.fn(() => ({ lastInsertRowid: 4, changes: 1 }))
+            run: jest.fn((...params) => {
+                const isInsert = sql.includes('INSERT INTO events');
+                if (isInsert) {
+                    const newEvent = {
+                        id: 4,
+                        club_id: params[0],
+                        title: params[1],
+                        description: params[2],
+                        event_date: params[3],
+                        end_date: params[4],
+                        location: params[5],
+                        category: params[6],
+                        image_url: params[7],
+                        status: params[8],
+                        source: 'manual'
+                    };
+                    mockEvents.push(newEvent);
+                    return { lastInsertRowid: 4, changes: 1 };
+                }
+                return { lastInsertRowid: 0, changes: 0 };
+            })
         })),
         exec: jest.fn(),
         pragma: jest.fn()

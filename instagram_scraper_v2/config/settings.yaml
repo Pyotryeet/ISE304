@@ -1,0 +1,26 @@
+browser:
+  headless: true
+  user_data_dir: "data/chrome_user_data"
+  args:
+    - "--no-sandbox"
+    - "--disable-setuid-sandbox"
+    - "--disable-infobars"
+    - "--window-position=0,0"
+    - "--ignore-certifcate-errors"
+    - "--ignore-certifcate-errors-spki-list"
+  user_agent_rotation: true
+  viewport:
+    width: 1920
+    height: 1080
+  slow_mo: 100 # ms
+  timeout: 60000 # ms
+
+scraper:
+  max_posts_per_user: 12
+  wait_min: 3
+  wait_max: 7
+  output_dir: "data/output"
+
+paths:
+  user_data_dir: "data/chrome_user_data"
+  output_dir: "data/output"

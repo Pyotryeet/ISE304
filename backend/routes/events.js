@@ -322,10 +322,17 @@ router.post('/scraped', (req, res) => {
         }
 
         // Find club by name (fuzzy match or exact)
-        const club = db.prepare('SELECT id FROM clubs WHERE name = ? COLLATE NOCASE').get(club_name.trim());
+        let club = db.prepare('SELECT id FROM clubs WHERE name = ? COLLATE NOCASE').get(club_name.trim());
 
         if (!club) {
-            return res.status(404).json({ error: `Club '${club_name}' not found` });
+            // Auto-create club if it doesn't exist (for scraper integration)
+            const newClub = db.prepare(`
+                INSERT INTO clubs (name, instagram_url, password_hash, is_admin)
+                VALUES (?, ?, 'scraped_account', 0)
+            `).run(club_name.trim(), `https://instagram.com/${club_name.trim()}`);
+
+            club = { id: newClub.lastInsertRowid };
+            console.log(`Auto-created club '${club_name}' from scraper`);
         }
 
         // Check for duplicates (same club, title, date)
@@ -341,7 +348,7 @@ router.post('/scraped', (req, res) => {
         // Insert new scraped event
         const result = db.prepare(`
             INSERT INTO events (club_id, title, description, event_date, location, source, status, image_url)
-            VALUES (?, ?, ?, ?, ?, 'scraped', 'draft', ?)
+            VALUES (?, ?, ?, ?, ?, 'scraped', 'published', ?)
         `).run(
             club.id,
             title,
@@ -358,7 +365,7 @@ router.post('/scraped', (req, res) => {
 
     } catch (error) {
         console.error('Error receiving scraped event:', error);
-        res.status(500).json({ error: 'Internal server error' });
+        res.status(500).json({ error: 'Internal server error', details: error.message });
     }
 });
 

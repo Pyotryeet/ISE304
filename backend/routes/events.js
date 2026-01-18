@@ -315,7 +315,7 @@ router.post('/scraped', (req, res) => {
             return res.status(401).json({ error: 'Invalid API Key' });
         }
 
-        const { title, description, event_date, location, source, instagram_post_url, club_name } = req.body;
+        const { title, description, event_date, location, category, source, instagram_post_url, club_name } = req.body;
 
         if (!title || !event_date || !club_name) {
             return res.status(400).json({ error: 'Title, event_date, and club_name are required' });
@@ -345,16 +345,17 @@ router.post('/scraped', (req, res) => {
             return res.status(200).json({ message: 'Event already exists', id: existingEvent.id });
         }
 
-        // Insert new scraped event
+        // Insert new scraped event (now includes category from LLM)
         const result = db.prepare(`
-            INSERT INTO events (club_id, title, description, event_date, location, source, status, image_url)
-            VALUES (?, ?, ?, ?, ?, 'scraped', 'published', ?)
+            INSERT INTO events (club_id, title, description, event_date, location, category, source, status, image_url)
+            VALUES (?, ?, ?, ?, ?, ?, 'scraped', 'published', ?)
         `).run(
             club.id,
             title,
             description || '',
             event_date,
             location || '',
+            category || null,
             instagram_post_url // Using post URL as image/link placeholder for now
         );
 

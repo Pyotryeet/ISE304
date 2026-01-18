@@ -7,10 +7,36 @@ import json
 import re
 import time
 import requests
+import os
 from datetime import datetime, timedelta
 from dateutil import parser as date_parser
 from playwright.sync_api import sync_playwright, Page
 from typing import Optional
+from dotenv import load_dotenv
+
+import logging
+
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(levelname)s - %(message)s',
+    handlers=[
+        logging.FileHandler("scraper.log", encoding='utf-8'),
+        logging.StreamHandler()
+    ]
+)
+
+# Load environment variables
+load_dotenv()
+
+# Import LLM parser
+try:
+    from llm_parser import parse_event_with_llm
+    LLM_AVAILABLE = True
+    logging.info("LLM parser imported successfully")
+except ImportError:
+    LLM_AVAILABLE = False
+    logging.warning("LLM parser not available, using regex fallback")
 
 
 # Keywords that might indicate an event (Turkish and English)
@@ -67,7 +93,7 @@ class InstagramScraper:
             self.playwright.stop()
         print("Browser stopped")
     
-    def scrape_instagram_profile(self, instagram_url: str) -> list[dict]:
+    def scrape_instagram_profile(self, instagram_url: str, club_name: str = None) -> list[dict]:
         """
         Scrape recent posts from an Instagram profile
         Returns a list of potential events extracted from posts
@@ -86,7 +112,7 @@ class InstagramScraper:
             
             # Check if we hit a login wall
             if self._check_login_required():
-                print("  ⚠ Login required - trying to bypass...")
+                print("  [!] Login required - trying to bypass...")
                 self._try_bypass_login()
             
             # Get all post links
@@ -96,14 +122,14 @@ class InstagramScraper:
             # Scrape each post (limit to most recent 10)
             for i, post_url in enumerate(post_links[:10]):
                 print(f"  Checking post {i+1}/{min(len(post_links), 10)}...")
-                event = self._scrape_post(post_url)
+                event = self._scrape_post(post_url, club_name=club_name)
                 if event:
                     events.append(event)
-                    print(f"    ✓ Found potential event: {event.get('title', 'Unknown')[:50]}")
+                    print(f"    [OK] Found potential event: {event.get('title', 'Unknown')[:50]}")
                 time.sleep(1)  # Be nice to Instagram
             
         except Exception as e:
-            print(f"  ✗ Error scraping profile: {e}")
+            print(f"  [X] Error scraping profile: {e}")
         
         return events
     
@@ -144,9 +170,10 @@ class InstagramScraper:
         
         return post_links
     
-    def _scrape_post(self, post_url: str) -> Optional[dict]:
+    def _scrape_post(self, post_url: str, club_name: str = None) -> Optional[dict]:
         """
         Scrape a single post and extract event information if present
+        Uses LLM parsing if available, falls back to regex
         """
         try:
             self.page.goto(post_url, wait_until="domcontentloaded", timeout=30000)
@@ -162,20 +189,36 @@ class InstagramScraper:
             if not self._is_event_post(content):
                 return None
             
-            # Extract event details
-            event = {
-                'title': self._extract_title(content),
-                'description': content,
-                'event_date': self._extract_date(content),
-                'location': self._extract_location(content),
-                'instagram_post_url': post_url,
-                'source': 'scraped',
-                'status': 'draft',
-                'scraped_at': datetime.now().isoformat()
-            }
+            # Try LLM parsing first
+            event = None
+            if LLM_AVAILABLE and os.getenv('OPENAI_API_KEY'):
+                print("    Using LLM parser...")
+                event = parse_event_with_llm(content, club_name)
+                if event:
+                    print("    [OK] LLM parsing successful")
+            
+            # Fall back to regex parsing if LLM fails
+            if not event:
+                print("    Using regex fallback...")
+                event = {
+                    'title': self._extract_title(content),
+                    'description': content,
+                    'event_date': self._extract_date(content),
+                    'location': self._extract_location(content),
+                    'category': None,
+                }
+            else:
+                # Add the full description if LLM parsing worked
+                event['description'] = event.get('description') or content
+            
+            # Add common fields
+            event['instagram_post_url'] = post_url
+            event['source'] = 'scraped'
+            event['status'] = 'draft'
+            event['scraped_at'] = datetime.now().isoformat()
             
             # Only return if we found at least a title or date
-            if event['title'] or event['event_date']:
+            if event.get('title') or event.get('event_date'):
                 return event
             
             return None
@@ -316,7 +359,7 @@ def send_to_backend(events: list[dict], backend_url: str = "http://localhost:300
         try:
             # Ensure required fields
             if not event.get('title') or not event.get('event_date'):
-                print(f"  ⚠ Skipping incomplete event: {event.get('title', 'Unknown')}")
+                print(f"  [!] Skipping incomplete event: {event.get('title', 'Unknown')}")
                 continue
 
             response = requests.post(
@@ -326,13 +369,13 @@ def send_to_backend(events: list[dict], backend_url: str = "http://localhost:300
             )
             
             if response.status_code == 201:
-                print(f"  ✓ Created: {event.get('title', 'Unknown')[:50]}")
+                print(f"  [OK] Created: {event.get('title', 'Unknown')[:50]}")
             elif response.status_code == 200:
-                print(f"  ℹ Skipped (Duplicate): {event.get('title', 'Unknown')[:50]}")
+                print(f"  [i] Skipped (Duplicate): {event.get('title', 'Unknown')[:50]}")
             else:
-                print(f"  ⚠ Failed ({response.status_code}): {response.text}")
+                print(f"  [!] Failed ({response.status_code}): {response.text}")
         except Exception as e:
-            print(f"  ✗ Error: {e}")
+            print(f"  [X] Error: {e}")
 
 
 def main():
@@ -361,11 +404,12 @@ def main():
         for i, club in enumerate(clubs):
             print(f"\n[{i+1}/{len(clubs)}] Processing: {club['name']}")
             
-            events = scraper.scrape_instagram_profile(club['instagram_url'])
+            events = scraper.scrape_instagram_profile(club['instagram_url'], club_name=club['name'])
             
-            # Add club info to events
+            # Add club info to events (in case LLM didn't get it)
             for event in events:
-                event['club_name'] = club['name']
+                if not event.get('club_name'):
+                    event['club_name'] = club['name']
             
             all_events.extend(events)
             
@@ -375,9 +419,9 @@ def main():
         # Save events
         if all_events:
             save_events(all_events)
-            print(f"\n✓ Successfully scraped {len(all_events)} potential events!")
+            print(f"\n[OK] Successfully scraped {len(all_events)} potential events!")
         else:
-            print("\n⚠ No events found.")
+            print("\n[!] No events found.")
             
     except KeyboardInterrupt:
         print("\n\nScraping interrupted by user.")

@@ -1,1 +1,26 @@
+# Dependencies
+node_modules/
+__pycache__/
+*.pyc
 
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Build outputs
+dist/
+build/
+
+# Logs
+*.log
+npm-debug.log*
+
+# Scraped data (may contain large files)
+scraped_events.json
+clubs.json

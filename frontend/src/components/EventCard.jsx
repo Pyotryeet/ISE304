@@ -31,16 +31,9 @@ export default function EventCard({ event }) {
 
     return (
         <Link to={`/events/${event.id}`} style={{ textDecoration: 'none' }}>
+            {/* DEBUG LOG */}
+            {console.log(`Event ${event.id} location:`, event.location)}
             <article className="event-card">
-                {/* Image or Placeholder */}
-                {event.image_url ? (
-                    <img src={event.image_url} alt={event.title} className="event-card-image" />
-                ) : (
-                    <div className="event-card-image placeholder">
-                        {getCategoryEmoji(event.category)}
-                    </div>
-                )}
-
                 {/* Source Badge */}
                 <span className={`event-card-badge ${event.source}`}>
                     {event.source === 'scraped' ? '🤖 Auto' : '✏️ Manual'}

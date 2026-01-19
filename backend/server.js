@@ -24,11 +24,13 @@ db.ready.then(() => {
     const eventsRoutes = require('./routes/events');
     const remindersRoutes = require('./routes/reminders');
     const scrapedClubsRoutes = require('./routes/scraped-clubs');
+    const clubsRoutes = require('./routes/clubs');
 
     app.use('/api/auth', authRoutes);
     app.use('/api/events', eventsRoutes);
     app.use('/api/reminders', remindersRoutes);
     app.use('/api/scraped-clubs', scrapedClubsRoutes);
+    app.use('/api/clubs', clubsRoutes);
 
     // Health check endpoint
     app.get('/api/health', (req, res) => {
@@ -87,9 +89,10 @@ db.ready.then(() => {
         res.status(404).json({ error: 'Endpoint not found' });
     });
 
-    // Start server
-    app.listen(PORT, () => {
-        console.log(`
+    // Start server only if run directly
+    if (require.main === module) {
+        app.listen(PORT, () => {
+            console.log(`
 ╔════════════════════════════════════════════════════════╗
 ║                    THE HIVE API                        ║
 ║        ITU Campus Event Aggregation Platform           ║
@@ -97,8 +100,9 @@ db.ready.then(() => {
 ║  Server running on: http://localhost:${PORT}              ║
 ║  API docs at: http://localhost:${PORT}/api                ║
 ╚════════════════════════════════════════════════════════╝
-        `);
-    });
+            `);
+        });
+    }
 }).catch(err => {
     console.error('Failed to initialize database:', err);
     process.exit(1);

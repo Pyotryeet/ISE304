@@ -118,7 +118,7 @@ describe('Scraper API Integration Tests', () => {
         expect(response.body).toHaveProperty('message', 'Event already exists');
     });
 
-    test('Should return 404 for unknown club', async () => {
+    test('Should auto-create club if unknown', async () => {
         const eventData = {
             title: 'Event',
             event_date: '2025-10-10',
@@ -129,6 +129,10 @@ describe('Scraper API Integration Tests', () => {
             .post('/api/events/scraped')
             .set('x-api-key', API_KEY)
             .send(eventData)
-            .expect(404);
+            .send(eventData)
+            .expect(201); // Should auto-create club
+
+        // Clean up or check side effects if needed (optional)
+        // For now just ensuring it doesn't 404 is enough to match updated logic
     });
 });

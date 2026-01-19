@@ -5,6 +5,8 @@ import HomePage from './pages/HomePage';
 import EventDetailPage from './pages/EventDetailPage';
 import DashboardPage from './pages/DashboardPage';
 import LoginForm from './components/LoginForm';
+import ClubsPage from './pages/ClubsPage';
+import CalendarPage from './pages/CalendarPage';
 
 function App() {
   return (
@@ -16,27 +18,12 @@ function App() {
           <Route path="/events/:id" element={<EventDetailPage />} />
           <Route path="/login" element={<LoginForm />} />
           <Route path="/dashboard" element={<DashboardPage />} />
-          <Route path="/calendar" element={<ComingSoon title="Calendar View" />} />
-          <Route path="/clubs" element={<ComingSoon title="Clubs Directory" />} />
+          <Route path="/calendar" element={<CalendarPage />} />
+          <Route path="/clubs" element={<ClubsPage />} />
         </Routes>
         <Footer />
       </Router>
     </AuthProvider>
-  );
-}
-
-// Coming Soon placeholder
-function ComingSoon({ title }) {
-  return (
-    <div className="page">
-      <div className="container">
-        <div className="empty-state">
-          <div className="empty-state-icon">🚧</div>
-          <h3 className="empty-state-title">{title}</h3>
-          <p className="empty-state-text">This feature is coming soon!</p>
-        </div>
-      </div>
-    </div>
   );
 }
 

@@ -10,9 +10,16 @@ const request = require('supertest');
 // Full integration test without mocking (uses real database)
 // These tests require the server to be running
 
-const BASE_URL = 'http://localhost:3001';
+const app = require('../server');
+const db = require('../database/db');
 
+// Full integration test using the real app instance and database
 describe('Integration Tests - API Workflows', () => {
+
+    beforeAll(async () => {
+        // Wait for database to be ready before running tests
+        await db.ready;
+    });
 
     /**
      * INTEGRATION TEST: Complete User Flow
@@ -21,7 +28,7 @@ describe('Integration Tests - API Workflows', () => {
     describe('IT-001: Complete Event Discovery Flow', () => {
 
         test('IT-001-A: Public user can browse published events', async () => {
-            const response = await request(BASE_URL)
+            const response = await request(app)
                 .get('/api/events')
                 .expect(200);
 
@@ -30,7 +37,7 @@ describe('Integration Tests - API Workflows', () => {
         });
 
         test('IT-001-B: Public user can search events by keyword', async () => {
-            const response = await request(BASE_URL)
+            const response = await request(app)
                 .get('/api/events?search=concert')
                 .expect(200);
 
@@ -38,7 +45,7 @@ describe('Integration Tests - API Workflows', () => {
         });
 
         test('IT-001-C: Public user can filter events by category', async () => {
-            const response = await request(BASE_URL)
+            const response = await request(app)
                 .get('/api/events?category=music')
                 .expect(200);
 
@@ -47,14 +54,14 @@ describe('Integration Tests - API Workflows', () => {
 
         test('IT-001-D: Public user can view event details', async () => {
             // First get an event ID
-            const listResponse = await request(BASE_URL)
+            const listResponse = await request(app)
                 .get('/api/events?limit=1')
                 .expect(200);
 
             if (listResponse.body.events.length > 0) {
                 const eventId = listResponse.body.events[0].id;
 
-                const detailResponse = await request(BASE_URL)
+                const detailResponse = await request(app)
                     .get(`/api/events/${eventId}`)
                     .expect(200);
 
@@ -72,7 +79,7 @@ describe('Integration Tests - API Workflows', () => {
         let authToken = null;
 
         test('IT-002-A: Club can login with valid credentials', async () => {
-            const response = await request(BASE_URL)
+            const response = await request(app)
                 .post('/api/auth/login')
                 .send({
                     email: 'music@itu.edu.tr',
@@ -88,7 +95,7 @@ describe('Integration Tests - API Workflows', () => {
         test('IT-002-B: Authenticated user can access protected route', async () => {
             if (!authToken) {
                 // Get token first
-                const loginResponse = await request(BASE_URL)
+                const loginResponse = await request(app)
                     .post('/api/auth/login')
                     .send({
                         email: 'music@itu.edu.tr',
@@ -97,7 +104,7 @@ describe('Integration Tests - API Workflows', () => {
                 authToken = loginResponse.body.token;
             }
 
-            const response = await request(BASE_URL)
+            const response = await request(app)
                 .get('/api/auth/me')
                 .set('Authorization', `Bearer ${authToken}`)
                 .expect(200);
@@ -107,7 +114,7 @@ describe('Integration Tests - API Workflows', () => {
         });
 
         test('IT-002-C: Invalid credentials are rejected', async () => {
-            const response = await request(BASE_URL)
+            const response = await request(app)
                 .post('/api/auth/login')
                 .send({
                     email: 'music@itu.edu.tr',
@@ -128,14 +135,14 @@ describe('Integration Tests - API Workflows', () => {
 
         test('IT-003-A: User can set reminder for published event', async () => {
             // Get a published event
-            const eventsResponse = await request(BASE_URL)
+            const eventsResponse = await request(app)
                 .get('/api/events?limit=1')
                 .expect(200);
 
             if (eventsResponse.body.events.length > 0) {
                 const eventId = eventsResponse.body.events[0].id;
 
-                const response = await request(BASE_URL)
+                const response = await request(app)
                     .post('/api/reminders')
                     .send({
                         email: testEmail,
@@ -148,14 +155,14 @@ describe('Integration Tests - API Workflows', () => {
         });
 
         test('IT-003-B: User can check if reminder exists', async () => {
-            const eventsResponse = await request(BASE_URL)
+            const eventsResponse = await request(app)
                 .get('/api/events?limit=1')
                 .expect(200);
 
             if (eventsResponse.body.events.length > 0) {
                 const eventId = eventsResponse.body.events[0].id;
 
-                const response = await request(BASE_URL)
+                const response = await request(app)
                     .get(`/api/reminders/check?email=${testEmail}&eventId=${eventId}`)
                     .expect(200);
 
@@ -164,7 +171,7 @@ describe('Integration Tests - API Workflows', () => {
         });
 
         test('IT-003-C: User can view their reminders', async () => {
-            const response = await request(BASE_URL)
+            const response = await request(app)
                 .get(`/api/reminders?email=${testEmail}`)
                 .expect(200);
 
@@ -179,7 +186,7 @@ describe('Integration Tests - API Workflows', () => {
     describe('IT-004: API Infrastructure', () => {
 
         test('IT-004-A: Health endpoint returns OK', async () => {
-            const response = await request(BASE_URL)
+            const response = await request(app)
                 .get('/api/health')
                 .expect(200);
 
@@ -188,7 +195,7 @@ describe('Integration Tests - API Workflows', () => {
         });
 
         test('IT-004-B: API documentation endpoint works', async () => {
-            const response = await request(BASE_URL)
+            const response = await request(app)
                 .get('/api')
                 .expect(200);
 
@@ -197,7 +204,7 @@ describe('Integration Tests - API Workflows', () => {
         });
 
         test('IT-004-C: 404 for unknown endpoints', async () => {
-            const response = await request(BASE_URL)
+            const response = await request(app)
                 .get('/api/nonexistent')
                 .expect(404);
 
